@@ -1,0 +1,43 @@
+name: Job Search
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: jobber/go.sum
+
+      - name: Restore seen-jobs cache
+        uses: actions/cache@v4
+        with:
+          path: seen-jobs.json
+          key: seen-jobs-${{ github.run_id }}
+          restore-keys: seen-jobs-
+
+      - name: Build
+        working-directory: jobber
+        run: go build -o ../jobber-bin ./cmd/jobber
+
+      - name: Run
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          KEYWORDS: ${{ vars.KEYWORDS }}
+          SEEN_JOBS_PATH: seen-jobs.json
+        run: ./jobber-bin
+
+      - name: Save seen-jobs cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: seen-jobs.json
+          key: seen-jobs-${{ github.run_id }}
